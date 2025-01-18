@@ -55,6 +55,9 @@
 #include <EEPROM.h>
 #include <TimeLib.h>
 #include "Constants.h"
+#include <Wire.h>
+#include <RtcDS3231.h>                // если используется другой модуль из списка поддерживаемых библиотекой (https://github.com/Makuna/Rtc/wiki),
+                                      // замените на нужный. Также, сделайте это в строках 113 и 576 этого файла
 #ifdef ESP_USE_BUTTON
 #include <GyverButton.h>
 #endif
@@ -107,6 +110,9 @@
 
 
 // --- ИНИЦИАЛИЗАЦИЯ ОБЪЕКТОВ ----------
+RtcDS3231<TwoWire> Rtc(Wire);
+RtcDateTime timeToSet;
+
 CRGB leds[NUM_LEDS];
 WiFiUDP Udp;
 
@@ -347,6 +353,48 @@ uint8_t hours;                         // Часы
 //uint8_t last_hours; 
 uint8_t AutoBrightness;                // Автояркость on/off
 uint8_t last_day_night = 0;
+bool hasRtc = true;
+#ifndef USE_RTC
+  hasRtc = false;
+#endif
+
+#ifdef USE_RTC
+bool wasError(const char* errorTopic = "")
+{
+    uint8_t error = Rtc.LastError();
+    if (error != 0)
+    {
+        LOG.println(errorTopic);
+        LOG.println(error);
+
+        switch (error)
+        {
+        case Rtc_Wire_Error_None:
+            LOG.println(F("(none?!)"));
+            break;
+        case Rtc_Wire_Error_TxBufferOverflow:
+            LOG.println(F("transmit buffer overflow"));
+            break;
+        case Rtc_Wire_Error_NoAddressableDevice:
+            LOG.println(F("no device responded"));
+            hasRtc = false;
+            break;
+        case Rtc_Wire_Error_UnsupportedRequest:
+            LOG.println(F("device doesn't support request"));
+            break;
+        case Rtc_Wire_Error_Unspecific:
+            LOG.println(F("unspecified error"));
+            break;
+        case Rtc_Wire_Error_CommunicationTimeout:
+            LOG.println(F("communications timed out"));
+            hasRtc = false;
+            break;
+        }
+        return true;
+    }
+    return false;
+}
+#endif
 
 void setup()  //==================================================================  void setup()  =========================================================================
 {
@@ -459,6 +507,65 @@ void setup()  //================================================================
   summerTime.offset = winterTime.offset + jsonReadtoInt(configSetup, "Summer_Time") *60;
   localTimeZone.setRules (summerTime, winterTime);
   #endif
+
+  #ifdef USE_RTC
+    Wire.begin(I2C_SDA, I2C_SCL);
+    Rtc.Begin();
+    RtcDateTime compiled = RtcDateTime(__DATE__, __TIME__);
+    time_t utcCompiledUnix = localTimeZone.toUTC(compiled.Epoch32Time());
+    RtcDateTime utcCompiled;
+    utcCompiled.InitWithEpoch32Time(utcCompiledUnix);
+    printDateTime(utcCompiled);
+
+    if (!Rtc.IsDateTimeValid())
+    {
+        if (!wasError("setup IsDateTimeValid"))
+        {
+            // Common Causes:
+            //    1) first time you ran and the device wasn't running yet
+            //    2) the battery on the device is low or even missing
+            LOG.println(F("RTC lost confidence in the DateTime!"));
+            // following line sets the RTC to the date & time this sketch was compiled
+            // it will also reset the valid flag internally unless the Rtc device is
+            // having an issue
+            Rtc.SetDateTime(utcCompiled);
+        }
+    }
+
+    if (!Rtc.GetIsRunning())
+    {
+        if (!wasError("setup GetIsRunning"))
+        {
+            LOG.println(F("RTC was not actively running, starting now"));
+            Rtc.SetIsRunning(true);
+        }
+    }
+
+    RtcDateTime now = Rtc.GetDateTime();
+    if (!wasError("setup GetDateTime"))
+    {
+        if (now < utcCompiled)
+        {
+            LOG.println(F("RTC is older than compile time, updating DateTime"));
+            Rtc.SetDateTime(utcCompiled);
+        }
+        else if (now > utcCompiled)
+        {
+            LOG.println(F("RTC is newer than compile time, this is expected"));
+        }
+        else if (now == utcCompiled)
+        {
+            LOG.println(F("RTC is the same as compile time, while not expected all is still fine"));
+        }
+    }
+    // never assume the Rtc was last configured by you, so
+    // just clear them to your needed state
+    Rtc.Enable32kHzPin(false);
+    wasError("setup Enable32kHzPin");
+    Rtc.SetSquareWavePin(DS3231SquareWavePin_ModeNone);
+    wasError("setup SetSquareWavePin");
+  #endif //USE_RTC
+
   #ifdef MP3_PLAYER_USE
   eff_volume = jsonReadtoInt(configSetup, "vol");
   eff_sound_on = (jsonReadtoInt(configSetup, "on_sound")==0)? 0 : eff_volume;
@@ -817,13 +924,26 @@ void setup()  //================================================================
   
   #ifdef HEAP_SIZE_PRINT
    mem_timer = millis();
-  #endif //HEAP_SIZE_PRINT 
+  #endif //HEAP_SIZE_PRINT
 }
 
 
 void loop()  //====================================================================  void loop()  ===========================================================================
 {
-  
+  #ifdef USE_RTC
+     if (hasRtc) {
+       if (!Rtc.IsDateTimeValid())
+       {
+           if (!wasError("loop IsDateTimeValid"))
+           {
+               // Common Causes:
+               //    1) the battery on the device is low or even missing and the power line was disconnected
+               LOG.println(F("RTC lost confidence in the DateTime!"));
+           }
+       }
+     }
+  #endif //USE_RTC
+
  if (espMode) {
   if (WiFi.status() != WL_CONNECTED) {
     if ((millis()-my_timer) >= 1000UL) {    
@@ -1083,4 +1203,22 @@ do {    //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++======
     }
   #endif
 } while (connect);
+}
+
+#define countof(a) (sizeof(a) / sizeof(a[0]))
+
+void printDateTime(const RtcDateTime& dt)
+{
+    char datestring[26];
+
+    snprintf_P(datestring,
+            countof(datestring),
+            PSTR("%02u/%02u/%04u %02u:%02u:%02u"),
+            dt.Month(),
+            dt.Day(),
+            dt.Year(),
+            dt.Hour(),
+            dt.Minute(),
+            dt.Second() );
+    LOG.println(datestring);
 }

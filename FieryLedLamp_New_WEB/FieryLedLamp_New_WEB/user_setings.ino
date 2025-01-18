@@ -1152,10 +1152,16 @@ void get_time_manual ()   {
     #endif // WARNING_IF_NO_TIME  
     timeSynched = true;
     getBrightnessForPrintTime();
-    #if defined(PHONE_N_MANUAL_TIME_PRIORITY) && defined(USE_NTP)
+    #if defined(PHONE_N_MANUAL_TIME_PRIORITY) && defined(USE_NTP) && !defined(USE_RTC)
       stillUseNTP = false;
     #endif
     jsonWrite(configSetup, "time", (Get_Time(manualTimeShift+millis()/1000UL)));
+    #ifdef USE_RTC
+    time_t utcTime = localTimeZone.toUTC(manualTimeShift+millis()/1000UL);
+    timeToSet.InitWithEpoch32Time(utcTime);
+    Rtc.SetDateTime(timeToSet);
+    LOG.println(F("Time synced from Browser"));
+    #endif
     HTTP.send(200, F("application/json"), F("{\"should_refresh\": \"true\"}"));
 }
 
