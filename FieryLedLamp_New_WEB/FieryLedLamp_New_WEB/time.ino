@@ -33,6 +33,18 @@ void timeTick()
 {
 Save_File_Changes();
   //{
+
+#ifdef USE_RTC
+  if (hasRtc && !timeSynched) {
+    RtcDateTime now = Rtc.GetDateTime();
+    if (!wasError("setup IsDateTimeValid")) {
+      LOG.print(F("Time synced from RTC: "));
+      printDateTime(now);
+      timeSynched = true;
+    }
+  }
+#endif
+
 if (timeTimer.isReady())
     {
       #ifdef USE_NTP
@@ -46,7 +58,9 @@ if (timeTimer.isReady())
         }
         if (!ntpServerAddressResolved)
         {
-          return;                                                         // если нет интернет подключения, отключаем будильник до тех пор, пока оно не будет восстановлено
+          #ifndef USE_RTC
+            return;                                                         // если нет интернет подключения, отключаем будильник до тех пор, пока оно не будет восстановлено
+          #endif
         }
       }
 
@@ -62,12 +76,17 @@ if (stillUseNTP)
          #if defined(USE_MANUAL_TIME_SETTING) || defined(GET_TIME_FROM_PHONE) // если ручное время тоже поддерживается, сохраняем туда реальное на случай отвалившегося NTP
            manualTimeShift = localTimeZone.toLocal(timeClient.getEpochTime()) - millis() / 1000UL;
          #endif
-         #ifdef PHONE_N_MANUAL_TIME_PRIORITY
+         #ifdef USE_RTC
+           timeToSet.InitWithEpoch32Time(timeClient.getEpochTime());
+           Rtc.SetDateTime(timeToSet);
+           LOG.println(F("Time synced from NTP"));
+         #endif
+         #if defined(PHONE_N_MANUAL_TIME_PRIORITY) && !defined(USE_RTC)
            stillUseNTP = false;
          #endif
          getBrightnessForPrintTime();
       }
-}
+} //if (espMode == 1U)
       #endif //USE_NTP
       
       if (!timeSynched)                                                   // если время не было синхронизиировано ни разу, отключаем будильник до тех пор, пока оно не будет синхронизировано
@@ -261,9 +280,9 @@ time_t getCurrentLocalTime()
           #endif
         }
         milliscorrector = millis();
-   
-        if (ntpServerAddressResolved)
-          return localTimeZone.toLocal(timeClient.getEpochTime());
+
+        if (ntpServerAddressResolved || hasRtc)
+          return localTimeZone.toLocal(Get_Time_T());
         else    
           return millis() / 1000UL + manualTimeShift;
       #endif
@@ -284,12 +303,20 @@ time_t getCurrentLocalTime()
       #endif
 
       #if defined(USE_NTP) && !defined(USE_MANUAL_TIME_SETTING) || defined(USE_NTP) && !defined(GET_TIME_FROM_PHONE)
-        return localTimeZone.toLocal(timeClient.getEpochTime());
+        return localTimeZone.toLocal(Get_Time_T());
       #endif
     }
       else
   #endif
         return millis() / 1000UL;
+}
+
+time_t Get_Time_T() {
+  #ifdef USE_RTC
+    RtcDateTime now = Rtc.GetDateTime();
+    return now.Epoch32Time();
+  #endif
+  return timeClient.getEpochTime();
 }
 
 // Получение текущего времени
