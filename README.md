@@ -1,8 +1,8 @@
 # FieryLedLamp с поддержкой модуля реального времени RTC
 (форк от https://github.com/MishanyaTS/FieryLedLamp_New_WEB)
 
-Для успешной компиляции подключите библиотеку Rtc by Makuna (https://github.com/Makuna/Rtc) версии 2.5.0
-По умолчанию SDA модуля подключен к GPIO2, SCL к GPIO14, поменять можно в Constants.h
+Для успешной компиляции подключите библиотеку Rtc by Makuna (https://github.com/Makuna/Rtc) версии 2.5.0.<br/>
+По умолчанию SDA модуля подключен к GPIO2, SCL к GPIO14, поменять можно в Constants.h<br/>
 Побочный эффект - при включении лампы нет индикации в нижнем ряду светодиодов (т.к. время в лампе теперь есть всегда)
 
 # Версия FieryLedLamp v4.0_new_web 127 эффектов
