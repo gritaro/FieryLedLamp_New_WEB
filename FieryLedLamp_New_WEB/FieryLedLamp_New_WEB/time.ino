@@ -77,9 +77,11 @@ if (stillUseNTP)
            manualTimeShift = localTimeZone.toLocal(timeClient.getEpochTime()) - millis() / 1000UL;
          #endif
          #ifdef USE_RTC
+           if (hasRtc) {
            timeToSet.InitWithEpoch32Time(timeClient.getEpochTime());
            Rtc.SetDateTime(timeToSet);
            LOG.println(F("Time synced from NTP"));
+           }
          #endif
          #if defined(PHONE_N_MANUAL_TIME_PRIORITY) && !defined(USE_RTC)
            stillUseNTP = false;
@@ -282,7 +284,7 @@ time_t getCurrentLocalTime()
         milliscorrector = millis();
 
         if (ntpServerAddressResolved || hasRtc)
-          return localTimeZone.toLocal(Get_Time_T());
+          return localTimeZone.toLocal(getCurrentEpochTime());
         else    
           return millis() / 1000UL + manualTimeShift;
       #endif
@@ -303,7 +305,7 @@ time_t getCurrentLocalTime()
       #endif
 
       #if defined(USE_NTP) && !defined(USE_MANUAL_TIME_SETTING) || defined(USE_NTP) && !defined(GET_TIME_FROM_PHONE)
-        return localTimeZone.toLocal(Get_Time_T());
+        return localTimeZone.toLocal(getCurrentEpochTime());
       #endif
     }
       else
@@ -311,10 +313,12 @@ time_t getCurrentLocalTime()
         return millis() / 1000UL;
 }
 
-time_t Get_Time_T() {
+time_t getCurrentEpochTime() {
   #ifdef USE_RTC
+    if (hasRtc) {
     RtcDateTime now = Rtc.GetDateTime();
     return now.Epoch32Time();
+    }
   #endif
   return timeClient.getEpochTime();
 }

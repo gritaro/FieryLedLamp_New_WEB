@@ -1157,10 +1157,12 @@ void get_time_manual ()   {
     #endif
     jsonWrite(configSetup, "time", (Get_Time(manualTimeShift+millis()/1000UL)));
     #ifdef USE_RTC
+    if (hasRtc) {
     time_t utcTime = localTimeZone.toUTC(manualTimeShift+millis()/1000UL);
     timeToSet.InitWithEpoch32Time(utcTime);
     Rtc.SetDateTime(timeToSet);
     LOG.println(F("Time synced from Browser"));
+    }
     #endif
     HTTP.send(200, F("application/json"), F("{\"should_refresh\": \"true\"}"));
 }

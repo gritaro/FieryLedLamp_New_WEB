@@ -55,9 +55,15 @@
 #include <EEPROM.h>
 #include <TimeLib.h>
 #include "Constants.h"
-#include <Wire.h>
-#include <RtcDS3231.h>                // если используется другой модуль из списка поддерживаемых библиотекой (https://github.com/Makuna/Rtc/wiki),
-                                      // замените на нужный. Также, сделайте это в строках 113 и 576 этого файла
+#ifdef USE_RTC
+  #ifdef RTC_3231
+  #include <Wire.h>
+    #include <RtcDS3231.h>
+  #endif
+  #ifdef RTC_1302
+  #include <RtcDS1302.h>
+#endif
+#endif
 #ifdef ESP_USE_BUTTON
 #include <GyverButton.h>
 #endif
@@ -110,8 +116,16 @@
 
 
 // --- ИНИЦИАЛИЗАЦИЯ ОБЪЕКТОВ ----------
-RtcDS3231<TwoWire> Rtc(Wire);
+#ifdef USE_RTC
+  #ifdef RTC_1302
+    ThreeWire myWire(RTC_IO_PIN, RTC_SCLK_PIN, RTC_CE_PIN); // IO, SCLK, CE
+    RtcDS1302<ThreeWire> Rtc(myWire);
+  #endif
+  #ifdef RTC_3231
+    RtcDS3231<TwoWire> Rtc(Wire);
+  #endif
 RtcDateTime timeToSet;
+#endif
 
 CRGB leds[NUM_LEDS];
 WiFiUDP Udp;
@@ -353,14 +367,12 @@ uint8_t hours;                         // Часы
 //uint8_t last_hours; 
 uint8_t AutoBrightness;                // Автояркость on/off
 uint8_t last_day_night = 0;
-bool hasRtc = true;
-#ifndef USE_RTC
-  hasRtc = false;
-#endif
+bool hasRtc = false;
 
 #ifdef USE_RTC
 bool wasError(const char* errorTopic = "")
 {
+#ifdef RTC_3231
     uint8_t error = Rtc.LastError();
     if (error != 0)
     {
@@ -392,6 +404,7 @@ bool wasError(const char* errorTopic = "")
         }
         return true;
     }
+#endif
     return false;
 }
 #endif
@@ -415,6 +428,9 @@ void setup()  //================================================================
   LOG.print (F("  ESP8266\n"));
   #endif
 
+#ifndef USE_RTC
+  hasRtc = false;
+#endif
 
   #if defined(ESP_USE_BUTTON) && defined(BUTTON_LOCK_ON_START)
     #if (BUTTON_IS_SENSORY == 1)
@@ -509,7 +525,9 @@ void setup()  //================================================================
   #endif
 
   #ifdef USE_RTC
+    #ifdef RTC_3231
     Wire.begin(I2C_SDA, I2C_SCL);
+    #endif
     Rtc.Begin();
     RtcDateTime compiled = RtcDateTime(__DATE__, __TIME__);
     time_t utcCompiledUnix = localTimeZone.toUTC(compiled.Epoch32Time());
@@ -560,10 +578,12 @@ void setup()  //================================================================
     }
     // never assume the Rtc was last configured by you, so
     // just clear them to your needed state
+    #ifdef RTC_3231
     Rtc.Enable32kHzPin(false);
     wasError("setup Enable32kHzPin");
     Rtc.SetSquareWavePin(DS3231SquareWavePin_ModeNone);
     wasError("setup SetSquareWavePin");
+    #endif
   #endif //USE_RTC
 
   #ifdef MP3_PLAYER_USE
@@ -921,7 +941,7 @@ void setup()  //================================================================
   #endif  //TM1637_USE
 
   my_timer=millis();
-  
+
   #ifdef HEAP_SIZE_PRINT
    mem_timer = millis();
   #endif //HEAP_SIZE_PRINT
@@ -932,7 +952,13 @@ void loop()  //=================================================================
 {
   #ifdef USE_RTC
      if (hasRtc) {
+     #ifdef RTC_3231
        if (!Rtc.IsDateTimeValid())
+     #endif
+     #ifdef RTC_1302
+       RtcDateTime now = Rtc.GetDateTime();
+       if (!now.IsValid())
+     #endif
        {
            if (!wasError("loop IsDateTimeValid"))
            {
@@ -1207,6 +1233,7 @@ do {    //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++======
 
 #define countof(a) (sizeof(a) / sizeof(a[0]))
 
+#ifdef USE_RTC
 void printDateTime(const RtcDateTime& dt)
 {
     char datestring[26];
@@ -1222,3 +1249,4 @@ void printDateTime(const RtcDateTime& dt)
             dt.Second() );
     LOG.println(datestring);
 }
+#endif
