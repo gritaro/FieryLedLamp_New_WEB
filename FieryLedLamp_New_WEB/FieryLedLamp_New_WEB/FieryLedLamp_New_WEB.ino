@@ -367,7 +367,7 @@ uint8_t hours;                         // Часы
 //uint8_t last_hours; 
 uint8_t AutoBrightness;                // Автояркость on/off
 uint8_t last_day_night = 0;
-bool hasRtc = false;
+bool hasRtc = true;
 
 #ifdef USE_RTC
 bool wasError(const char* errorTopic = "")
