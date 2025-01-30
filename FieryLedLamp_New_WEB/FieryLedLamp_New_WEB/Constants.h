@@ -139,9 +139,9 @@
 #define LED_PIN               (0U)                          // Пин ленты                (D3) 
 #define BTN_PIN               (4U)                          // Пин кнопки               (D2)
 // пины для DS1302
-#define RTC_IO_PIN            (2)                          // SDA на GPIO2 (D4)
-#define RTC_SCLK_PIN          (14)                         // SCL на GPIO14 (D5)
-#define RTC_CE_PIN            (12)                         // SCL на GPIO14 (D5)
+#define RTC_IO_PIN            (2)                          // IO на GPIO2 (D4)
+#define RTC_SCLK_PIN          (14)                         // SCLK на GPIO14 (D5)
+#define RTC_CE_PIN            (12)                         // CE на GPIO12 (D6)
 
 #define MOSFET_PIN            (16U)                         // Пин MOSFET транзистора (D0) - может использоваться для управления питанием матрицы/ленты (если раскомментирована строка)
 #define MOSFET_LEVEL          (HIGH)                        // логический уровень, в который будет установлен пен MOSFET_PIN, когда матрица включена - HIGH или LOW (если раскомментировать)
