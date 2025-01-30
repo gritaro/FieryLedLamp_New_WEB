@@ -19,11 +19,15 @@
 #define TM1637_USE                                          // Закомментировать, если не используется дисплей TM1637
 #define MP3_PLAYER_USE                                      // Закомментировать строку в случае отсутствия плеера !!!
 #define IR_RECEIVER_USE                                     // Если не используется ИК ДУ - Закомментировать эту строку
-//#define USE_RTC                                             // Закомментировать строку в случае отсутствия RTC модуля
+#define USE_RTC                                             // Закомментировать строку в случае отсутствия RTC модуля
 #ifdef USE_RTC
   // оставьте только используемый RTC модуль
   #define RTC_3231
   //#define RTC_1302
+#endif
+
+#ifdef TM1637_USE
+  #define RTC_ATTACHED_TO_TM                                  // для экономии пинов, DS3231 можно подключить параллельно TM1637
 #endif
 
 // =============  НАСТРОЙКА  ====================
@@ -134,22 +138,28 @@
 // --- ESP_PIN_OUT ESP8266 ---  РАЗДЕЛЕНИЕ КОНТАКТОВ МОДУЛЯ ESP8266 (ESP32 смотри выше) ---
 #define LED_PIN               (0U)                          // Пин ленты                (D3) 
 #define BTN_PIN               (4U)                          // Пин кнопки               (D2)
-#define I2C_SDA               (2U)                          // SDA на GPIO2 (D4)
-#define I2C_SCL               (14U)                         // SCL на GPIO14 (D5)
 // пины для DS1302
 #define RTC_IO_PIN            (2)                          // SDA на GPIO2 (D4)
 #define RTC_SCLK_PIN          (14)                         // SCL на GPIO14 (D5)
 #define RTC_CE_PIN            (12)                         // SCL на GPIO14 (D5)
 
-#define MOSFET_PIN            (5U)                          // Пин MOSFET транзистора (D1) - может использоваться для управления питанием матрицы/ленты (если раскомментирована строка)
+#define MOSFET_PIN            (16U)                         // Пин MOSFET транзистора (D0) - может использоваться для управления питанием матрицы/ленты (если раскомментирована строка)
 #define MOSFET_LEVEL          (HIGH)                        // логический уровень, в который будет установлен пен MOSFET_PIN, когда матрица включена - HIGH или LOW (если раскомментировать)
 //#define ALARM_PIN             (15U)                       // Пин состояния будильника – может быть использован для управления любым внешним устройством на время работы будильника (если раскомментировать)
 //#define ALARM_LEVEL           (HIGH)                      // логический уровень, в который будет установлен пен ALARM_PIN, когда "рассвет"/будильник включен (если раскомментировать)
 
 #ifdef TM1637_USE
-#define DIO                   (16U)                         // D0 TM1637 display DIO pin
-#define CLK                   (14U)                         // D5 TM1637 display CLK pin
+  #define DIO                   (14U)                         // D5 TM1637 display DIO pin
+  #define CLK                   (5U)                          // D1 TM1637 display CLK pin
 #endif  //TM1637_USE
+
+#ifdef RTC_ATTACHED_TO_TM
+    #define I2C_SDA               (CLK)
+    #define I2C_SCL               (DIO)
+#else
+  #define I2C_SDA               (5U)                          // SDA на GPIO5 (D1)
+  #define I2C_SCL               (14U)                         // SCL на GPIO14 (D5)
+#endif
 
 #ifdef MP3_PLAYER_USE
  #define MP3_TX_PIN            (12U)                        // Определяет пин (D6) TX (RX на плеере) последовательного порта
